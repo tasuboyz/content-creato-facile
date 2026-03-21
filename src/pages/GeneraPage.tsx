@@ -17,17 +17,6 @@ export default function GeneraPage() {
     (p) => p.stato_linkedin === "Bozza" || p.stato_instagram === "Bozza"
   );
 
-  const toBase64 = async (url: string): Promise<string> => {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  };
-
   const handleGenera = async (postId: string, pdfLink: string | null, noteCorrezione: string | null, pngAttachments: string[] | null) => {
     const webhookUrl = settingsQuery.data?.webhook_genera_caption;
     if (!webhookUrl) {
@@ -37,14 +26,10 @@ export default function GeneraPage() {
 
     setGeneratingId(postId);
     try {
-      const immagini = await Promise.all(
-        (pngAttachments ?? []).map((url) => toBase64(url))
-      );
-
       const res = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: postId, pdf_link: pdfLink, note: noteCorrezione, immagini }),
+        body: JSON.stringify({ post_id: postId, pdf_link: pdfLink, note: noteCorrezione, immagini: pngAttachments ?? [] }),
       });
 
       if (!res.ok) throw new Error("Errore webhook");

@@ -43,7 +43,7 @@ export default function UploadPage() {
       // Upload PNGs
       const pngUrls: string[] = [];
       for (const file of pngFiles) {
-        const path = `${user.id}/${Date.now()}-${file.name}`;
+        const path = `${user.id}/${crypto.randomUUID()}-${file.name}`;
         const { error } = await supabase.storage.from("post-media").upload(path, file);
         if (error) throw error;
         const { data: urlData } = supabase.storage.from("post-media").getPublicUrl(path);
@@ -53,7 +53,7 @@ export default function UploadPage() {
       // Upload PDF
       let pdfLink: string | undefined;
       if (pdfFile) {
-        const path = `${user.id}/${Date.now()}-${pdfFile.name}`;
+        const path = `${user.id}/${crypto.randomUUID()}-${pdfFile.name}`;
         const { error } = await supabase.storage.from("post-media").upload(path, pdfFile);
         if (error) throw error;
         const { data: urlData } = supabase.storage.from("post-media").getPublicUrl(path);
