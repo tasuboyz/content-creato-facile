@@ -5,12 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Loader2, Webhook, User, Key } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Save, Loader2, Webhook, User, Key, Database, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { getSupabaseConfig, setSupabaseConfig } from "@/lib/config";
+import { reinitializeSupabaseClient } from "@/integrations/supabase/client";
 
 export default function ImpostazioniPage() {
   const { settingsQuery, upsertSettings } = useSettings();
   const settings = settingsQuery.data;
 
+  // Impostazioni app (salvate nel DB)
   const [webhookGenera, setWebhookGenera] = useState("");
   const [webhookLinkedin, setWebhookLinkedin] = useState("");
   const [webhookInstagram, setWebhookInstagram] = useState("");
@@ -40,6 +45,38 @@ export default function ImpostazioniPage() {
     });
   };
 
+  // Connessione Supabase (salvata in localStorage — bootstrap config)
+  const initialConfig = getSupabaseConfig();
+  const [supabaseUrl, setSupabaseUrl] = useState(initialConfig.url);
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState(initialConfig.anonKey);
+  const [supabaseSaved, setSupabaseSaved] = useState(false);
+
+  const handleSaveSupabase = () => {
+    const url = supabaseUrl.trim();
+    const key = supabaseAnonKey.trim();
+
+    if (!url || !key) {
+      toast.error("URL e chiave Supabase sono obbligatori");
+      return;
+    }
+
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:") {
+        toast.error("L'URL Supabase deve usare HTTPS");
+        return;
+      }
+    } catch {
+      toast.error("URL Supabase non valido");
+      return;
+    }
+
+    setSupabaseConfig(url, key);
+    reinitializeSupabaseClient();
+    setSupabaseSaved(true);
+    toast.success("Configurazione salvata — ricarica la pagina per applicare");
+  };
+
   if (settingsQuery.isLoading) {
     return (
       <AppLayout>
@@ -57,6 +94,66 @@ export default function ImpostazioniPage() {
           <h1 className="text-2xl font-bold">Impostazioni</h1>
           <p className="text-sm text-muted-foreground mt-1">Configura webhook e integrazioni</p>
         </div>
+
+        {/* INFRA — Connessione Supabase (localStorage, non DB) */}
+        <Card className="border-amber-500/50 bg-amber-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Database className="h-4 w-4 text-amber-600" />
+              Connessione Database (Supabase)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="supabase-url">Supabase URL</Label>
+              <Input
+                id="supabase-url"
+                value={supabaseUrl}
+                onChange={(e) => setSupabaseUrl(e.target.value)}
+                placeholder="https://xxxxxxxxxxxx.supabase.co"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="supabase-anon-key">Anon / Publishable Key</Label>
+              <Input
+                id="supabase-anon-key"
+                type="password"
+                value={supabaseAnonKey}
+                onChange={(e) => setSupabaseAnonKey(e.target.value)}
+                placeholder="eyJ..."
+                autoComplete="off"
+              />
+            </div>
+
+            {supabaseSaved && (
+              <Alert className="border-amber-500/50 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="flex items-center gap-3">
+                  <span>Configurazione salvata. <strong>Ricarica la pagina</strong> per applicare la nuova connessione.</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 border-amber-500/50"
+                    onClick={() => window.location.reload()}
+                  >
+                    Ricarica ora
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Button
+              onClick={handleSaveSupabase}
+              variant="outline"
+              className="w-full gap-2 border-amber-500/50 hover:bg-amber-500/10"
+            >
+              <Save className="h-4 w-4" />
+              Salva connessione
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="pb-3">
