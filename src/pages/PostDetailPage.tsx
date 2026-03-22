@@ -1,12 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { usePost, usePosts } from "@/hooks/usePosts";
+import { useSettings } from "@/hooks/useSettings";
 import { AppLayout } from "@/components/AppLayout";
 import { StatoBadge } from "@/components/StatoBadge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Save, Check, Send, Loader2, Image as ImageIcon, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Check, Send, Loader2, Image as ImageIcon, Trash2, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ export default function PostDetailPage() {
   const navigate = useNavigate();
   const { data: post, isLoading } = usePost(id);
   const { updatePost, deletePost } = usePosts();
+  const { settingsQuery } = useSettings();
 
   const [captionLinkedin, setCaptionLinkedin] = useState("");
   const [captionInstagram, setCaptionInstagram] = useState("");
@@ -22,6 +24,8 @@ export default function PostDetailPage() {
   const [pubblicaLinkedin, setPubblicaLinkedin] = useState("");
   const [pubblicaInstagram, setPubblicaInstagram] = useState("");
   const [selectedSlide, setSelectedSlide] = useState(0);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
     if (post) {
@@ -65,14 +69,129 @@ export default function PostDetailPage() {
     toast.success(`${platform === "linkedin" ? "LinkedIn" : "Instagram"} approvato`);
   };
 
-  const handlePubblica = () => {
-    updatePost.mutate({
-      id: post.id,
-      stato_linkedin: "Pubblicato",
-      stato_instagram: "Pubblicato",
-      pubblicato_il: new Date().toISOString(),
-    });
-    toast.success("Post contrassegnato come pubblicato");
+  const handlePubblica = async () => {
+    const settings = settingsQuery.data;
+    const linkedinWebhook = settings?.webhook_pubblica_linkedin;
+    const instagramWebhook = settings?.webhook_pubblica_instagram;
+
+    const publishLinkedin = post.stato_linkedin === "Approvato" && linkedinWebhook;
+    const publishInstagram = post.stato_instagram === "Approvato" && instagramWebhook;
+
+    if (!publishLinkedin && !publishInstagram) {
+      if (!linkedinWebhook && !instagramWebhook) {
+        toast.error("Configura i webhook di pubblicazione nelle Impostazioni");
+      } else {
+        toast.error("Nessuna piattaforma approvata con webhook configurato");
+      }
+      return;
+    }
+
+    setIsPublishing(true);
+    const updates: Record<string, string> = {};
+
+    try {
+      const calls: Promise<void>[] = [];
+
+      if (publishLinkedin) {
+        calls.push(
+          fetch(linkedinWebhook, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              post_id: post.id,
+              caption_linkedin: captionLinkedin,
+              immagini: post.png_attachments ?? [],
+              linkedin_page_id: settings?.linkedin_page_id ?? "",
+              pubblica_linkedin: pubblicaLinkedin ? new Date(pubblicaLinkedin).toISOString() : null,
+            }),
+          }).then(async (res) => {
+            if (!res.ok) throw new Error(`LinkedIn webhook: stato ${res.status}`);
+            updates.stato_linkedin = "Pubblicato";
+          })
+        );
+      }
+
+      if (publishInstagram) {
+        calls.push(
+          fetch(instagramWebhook, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              post_id: post.id,
+              caption_instagram: captionInstagram,
+              immagini: post.png_attachments ?? [],
+              instagram_account_id: settings?.instagram_account_id ?? "",
+              pubblica_instagram: pubblicaInstagram ? new Date(pubblicaInstagram).toISOString() : null,
+            }),
+          }).then(async (res) => {
+            if (!res.ok) throw new Error(`Instagram webhook: stato ${res.status}`);
+            updates.stato_instagram = "Pubblicato";
+          })
+        );
+      }
+
+      await Promise.all(calls);
+
+      updatePost.mutate({
+        id: post.id,
+        ...updates,
+        pubblicato_il: new Date().toISOString(),
+      });
+      toast.success("Post pubblicato con successo!");
+    } catch (err: any) {
+      toast.error(err instanceof TypeError ? "Impossibile raggiungere il webhook" : err.message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleRigenera = async () => {
+    const webhookUrl = settingsQuery.data?.webhook_genera_caption;
+    if (!webhookUrl) {
+      toast.error("Configura il webhook 'Genera Caption' nelle Impostazioni");
+      return;
+    }
+
+    setIsRegenerating(true);
+    updatePost.mutate({ id: post.id, stato_linkedin: "In corso", stato_instagram: "In corso" });
+
+    try {
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          post_id: post.id,
+          pdf_link: post.pdf_link,
+          note: noteCorrezione,
+          immagini: post.png_attachments ?? [],
+          prompt_sistema: settingsQuery.data?.prompt_sistema ?? "",
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Webhook ha risposto con stato ${res.status}`);
+
+      const data = await res.json();
+      const newLinkedin = data.caption_linkedin ?? "";
+      const newInstagram = data.caption_instagram ?? "";
+
+      setCaptionLinkedin(newLinkedin);
+      setCaptionInstagram(newInstagram);
+
+      updatePost.mutate({
+        id: post.id,
+        caption_linkedin: newLinkedin,
+        caption_instagram: newInstagram,
+        stato_linkedin: "Generato",
+        stato_instagram: "Generato",
+        generato_il: new Date().toISOString(),
+      });
+      toast.success("Caption rigenerate con successo!");
+    } catch (err: any) {
+      updatePost.mutate({ id: post.id, stato_linkedin: "Generato", stato_instagram: "Generato" });
+      toast.error(err instanceof TypeError ? "Impossibile raggiungere il webhook" : `Errore: ${err.message}`);
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const handleDelete = () => {
@@ -182,6 +301,10 @@ export default function PostDetailPage() {
               <Button onClick={handleSave} className="gap-1.5">
                 <Save className="h-4 w-4" /> Salva
               </Button>
+              <Button variant="outline" className="gap-1.5" disabled={isRegenerating} onClick={handleRigenera}>
+                {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {isRegenerating ? "Rigenerando..." : "Rigenera"}
+              </Button>
               <Button variant="outline" onClick={() => handleApprova("linkedin")} className="gap-1.5"
                 disabled={post.stato_linkedin === "Approvato" || post.stato_linkedin === "Pubblicato"}>
                 <Check className="h-4 w-4" /> Approva LinkedIn
@@ -190,9 +313,12 @@ export default function PostDetailPage() {
                 disabled={post.stato_instagram === "Approvato" || post.stato_instagram === "Pubblicato"}>
                 <Check className="h-4 w-4" /> Approva Instagram
               </Button>
-              <Button onClick={handlePubblica} className="gap-1.5"
-                disabled={post.stato_linkedin !== "Approvato" && post.stato_instagram !== "Approvato"}>
-                <Send className="h-4 w-4" /> Pubblica ora
+              <Button onClick={handlePubblica} className="gap-1.5" disabled={
+                isPublishing ||
+                (post.stato_linkedin !== "Approvato" && post.stato_instagram !== "Approvato")
+              }>
+                {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isPublishing ? "Pubblicando..." : "Pubblica ora"}
               </Button>
             </div>
           </div>

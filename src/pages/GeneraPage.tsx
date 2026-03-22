@@ -25,6 +25,7 @@ export default function GeneraPage() {
     }
 
     setGeneratingId(postId);
+    updatePost.mutate({ id: postId, stato_linkedin: "In corso", stato_instagram: "In corso" });
     try {
       const res = await fetch(webhookUrl, {
         method: "POST",
@@ -38,10 +39,10 @@ export default function GeneraPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Errore webhook");
-      
+      if (!res.ok) throw new Error(`Webhook ha risposto con stato ${res.status}`);
+
       const data = await res.json();
-      
+
       updatePost.mutate({
         id: postId,
         caption_linkedin: data.caption_linkedin ?? "",
@@ -52,7 +53,12 @@ export default function GeneraPage() {
       });
       toast.success("Caption generate con successo!");
     } catch (err: any) {
-      toast.error(`Errore: ${err.message}`);
+      updatePost.mutate({ id: postId, stato_linkedin: "Bozza", stato_instagram: "Bozza" });
+      if (err instanceof TypeError) {
+        toast.error("Impossibile raggiungere il webhook. Controlla l'URL nelle Impostazioni.");
+      } else {
+        toast.error(`Errore generazione: ${err.message}`);
+      }
     } finally {
       setGeneratingId(null);
     }

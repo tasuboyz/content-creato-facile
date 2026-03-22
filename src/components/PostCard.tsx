@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatoBadge } from "@/components/StatoBadge";
-import { Check, RefreshCw, Send, Image as ImageIcon } from "lucide-react";
+import { Check, Loader2, Send, Image as ImageIcon } from "lucide-react";
 import type { Post } from "@/types/post";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -11,9 +11,10 @@ interface PostCardProps {
   post: Post;
   onApprova?: (id: string) => void;
   onPubblica?: (id: string) => void;
+  isPublishing?: boolean;
 }
 
-export function PostCard({ post, onApprova, onPubblica }: PostCardProps) {
+export function PostCard({ post, onApprova, onPubblica, isPublishing }: PostCardProps) {
   const thumbnail = post.png_attachments?.[0];
   const publishDate = post.pubblica_linkedin || post.pubblica_instagram;
 
@@ -48,8 +49,9 @@ export function PostCard({ post, onApprova, onPubblica }: PostCardProps) {
             </Button>
           )}
           {(post.stato_linkedin === "Approvato" || post.stato_instagram === "Approvato") && onPubblica && (
-            <Button size="sm" className="h-7 text-xs gap-1" onClick={() => onPubblica(post.id)}>
-              <Send className="h-3 w-3" /> Pubblica
+            <Button size="sm" className="h-7 text-xs gap-1" disabled={isPublishing} onClick={() => onPubblica(post.id)}>
+              {isPublishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              {isPublishing ? "Pubblicando..." : "Pubblica"}
             </Button>
           )}
         </div>
