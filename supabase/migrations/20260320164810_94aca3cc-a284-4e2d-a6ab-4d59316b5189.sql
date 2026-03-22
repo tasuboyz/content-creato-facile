@@ -44,6 +44,7 @@ CREATE TABLE public.settings (
   linkedin_page_id TEXT DEFAULT '',
   instagram_account_id TEXT DEFAULT '',
   anthropic_api_key TEXT DEFAULT '',
+  prompt_sistema TEXT DEFAULT '',
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );

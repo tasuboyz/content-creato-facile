@@ -12,8 +12,33 @@ export function useAuth() {
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        setUser(session.user);
+        setLoading(false);
+        return;
+      }
+
+      // Nessuna sessione attiva: tenta auto-login con credenziali di default
+      const defaultEmail = import.meta.env.VITE_DEFAULT_EMAIL;
+      const defaultPassword = import.meta.env.VITE_DEFAULT_PASSWORD;
+
+      if (defaultEmail && defaultPassword) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: defaultEmail,
+          password: defaultPassword,
+        });
+
+        // Se l'utente non esiste, crealo (prima esecuzione)
+        if (signInError?.message?.toLowerCase().includes("invalid login credentials")) {
+          await supabase.auth.signUp({
+            email: defaultEmail,
+            password: defaultPassword,
+            options: { emailRedirectTo: import.meta.env.VITE_APP_URL || window.location.origin },
+          });
+        }
+      }
+
       setLoading(false);
     });
 
