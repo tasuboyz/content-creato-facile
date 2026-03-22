@@ -87,6 +87,7 @@ export type Database = {
           id: string
           instagram_account_id: string | null
           linkedin_page_id: string | null
+          prompt_sistema: string | null
           updated_at: string
           user_id: string
           webhook_genera_caption: string | null
@@ -99,6 +100,7 @@ export type Database = {
           id?: string
           instagram_account_id?: string | null
           linkedin_page_id?: string | null
+          prompt_sistema?: string | null
           updated_at?: string
           user_id: string
           webhook_genera_caption?: string | null
@@ -111,6 +113,7 @@ export type Database = {
           id?: string
           instagram_account_id?: string | null
           linkedin_page_id?: string | null
+          prompt_sistema?: string | null
           updated_at?: string
           user_id?: string
           webhook_genera_caption?: string | null

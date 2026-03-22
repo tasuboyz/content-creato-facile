@@ -29,7 +29,13 @@ export default function GeneraPage() {
       const res = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: postId, pdf_link: pdfLink, note: noteCorrezione, immagini: pngAttachments ?? [] }),
+        body: JSON.stringify({
+          post_id: postId,
+          pdf_link: pdfLink,
+          note: noteCorrezione,
+          immagini: pngAttachments ?? [],
+          prompt_sistema: settingsQuery.data?.prompt_sistema ?? "",
+        }),
       });
 
       if (!res.ok) throw new Error("Errore webhook");

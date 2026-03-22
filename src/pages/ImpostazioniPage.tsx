@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Save, Loader2, Webhook, User, Key, Database, AlertTriangle } from "lucide-react";
+import { Save, Loader2, Webhook, User, Key, Database, AlertTriangle, Bot } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { getSupabaseConfig, setSupabaseConfig } from "@/lib/config";
 import { reinitializeSupabaseClient } from "@/integrations/supabase/client";
@@ -22,6 +23,7 @@ export default function ImpostazioniPage() {
   const [linkedinPageId, setLinkedinPageId] = useState("");
   const [instagramAccountId, setInstagramAccountId] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
+  const [promptSistema, setPromptSistema] = useState("");
 
   useEffect(() => {
     if (settings) {
@@ -31,6 +33,7 @@ export default function ImpostazioniPage() {
       setLinkedinPageId(settings.linkedin_page_id ?? "");
       setInstagramAccountId(settings.instagram_account_id ?? "");
       setAnthropicKey(settings.anthropic_api_key ?? "");
+      setPromptSistema(settings.prompt_sistema ?? "");
     }
   }, [settings]);
 
@@ -42,6 +45,7 @@ export default function ImpostazioniPage() {
       linkedin_page_id: linkedinPageId,
       instagram_account_id: instagramAccountId,
       anthropic_api_key: anthropicKey,
+      prompt_sistema: promptSistema,
     });
   };
 
@@ -191,6 +195,29 @@ export default function ImpostazioniPage() {
             <div className="space-y-2">
               <Label>Instagram Business Account ID</Label>
               <Input value={instagramAccountId} onChange={(e) => setInstagramAccountId(e.target.value)} placeholder="987654321" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bot className="h-4 w-4 text-primary" /> Prompt AI
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="prompt-sistema">Contesto aziendale / Istruzioni copywriter</Label>
+              <Textarea
+                id="prompt-sistema"
+                value={promptSistema}
+                onChange={(e) => setPromptSistema(e.target.value)}
+                placeholder={"Sei un esperto copywriter per [Nome Azienda].\nL'azienda si occupa di...\nTono di voce: professionale ma diretto.\nEvita: ..."}
+                className="min-h-[140px] resize-y font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Questo testo viene inviato come contesto a ogni richiesta di generazione caption.
+              </p>
             </div>
           </CardContent>
         </Card>
